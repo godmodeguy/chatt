@@ -13,7 +13,8 @@
 ### TODO
 - add secure rooms with encrypted connection
 
-### Run
+#### Run
 `go run cmd/chatt.go -p [port]`
 
-#### To connect use `telnet`, `netcat` or anything else
+
+To connect use `telnet`, `netcat` or anything else
