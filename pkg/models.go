@@ -4,7 +4,7 @@ type Room struct {
 	Name       string
 	Password   string
 	Hidden     bool
-	Members    []*Client
+	Members    map[string]*Client
 	Creator    *Client
 	HelloMessage string
 	// MaxMembers int

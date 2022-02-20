@@ -3,13 +3,12 @@
 
 
 ### Commands
-- `/name <username>` - set username, *anonymous[host:ip]* by default
+- `/name <username>` - set username, *anonymous* by default
 - `/rooms` - list available room
 - `/join <name> [password]` - join room
-- `/quit` - exit from room
-- `/newroom <name> [password] [--hidden]` - crete new room
+- `/quit` - exit from room, if no room, disconnect
+- `/newroom <name> [password] [-h]` - crete new room (-h for hidden)
 
 
 ### TODO
-- add optional encryption
-- add direct message like @wintermute
+- add secure rooms with encrypted connection

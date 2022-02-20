@@ -1,6 +1,8 @@
 package chat
 
 import (
+	"context"
+	"errors"
 	"log"
 	"net"
 )
@@ -10,7 +12,7 @@ type ChatServer struct {
 	Listener        net.Listener
 	Clients         []*Client
 	MessangerMaster chan Message
-	Rooms			[]*Room
+	Rooms			map[string]*Room
 }
 
 func NewChatServer(addr string) (ChatServer, error) {
@@ -22,7 +24,7 @@ func NewChatServer(addr string) (ChatServer, error) {
 		Addr:     addr,
 		Listener: listener,
 		MessangerMaster: make(chan Message),
-		Rooms: make([]*Room, 0, 10),
+		Rooms: make(map[string]*Room),
 	}, nil
 }
 
@@ -44,35 +46,47 @@ func (s *ChatServer) startMessanger() {
 	}
 }
 
-func (s *ChatServer) NewRoom(creator *Client, name, password string, hidden bool) {
-	m := make([]*Client, 0, 20)
-	m = append(m, creator)
+func (s *ChatServer) NewRoom(creator *Client, name, password string, hidden bool) (*Room, error) {
+	if _, found := s.Rooms[name]; found {
+		return nil, errors.New("Room with this name already exists, choose another name")
+	}
+
+	m := make(map[string]*Client)
+	m[creator.Addr] = creator
 	r := Room{
+		HelloMessage: "Welcome, welcome",
 		Name:     name,
 		Password: password,
 		Hidden:   hidden,
 		Members:  m,
 	}
-	s.Rooms = append(s.Rooms, &r)
+
+	s.Rooms[name] = &r
+	return &r, nil
 }
 
-func (s *ChatServer) Run() {
+func (s *ChatServer) Run(ctx context.Context) {
 	log.Println("Server started at ", s.Listener.Addr())
-	defer s.Shutdown()
+	defer s.disconnect()
 
 	go s.startMessanger()
 
 	for {
-		conn, err := s.Listener.Accept()
-		if err != nil {
-			if err == net.ErrClosed {
-				return
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			conn, err := s.Listener.Accept()
+			if err != nil {
+				if err == net.ErrClosed {
+					return
+				}
+				log.Println("failed accept connection:", err.Error())
+				continue
 			}
-			log.Println("failed accept connection:", err.Error())
-			continue
-		}
 
-		s.handleClient(conn)
+			s.handleClient(conn)
+		}
 	}
 }
 
@@ -82,18 +96,8 @@ func (s *ChatServer) handleClient(conn net.Conn) {
 	go c.Handle()
 }
 
-func (s *ChatServer) Shutdown() error {
-	log.Println("Shuting down server")
-
-	if err := s.Listener.Close(); err != nil {
-		log.Println(err)
-	}
-
+func (s *ChatServer) disconnect() {
 	for _, c := range s.Clients {
-		if err := c.Kill(); err != nil {
-			log.Println(err)
-		}
+		c.Connected = false
 	}
-
-	return nil
 }
