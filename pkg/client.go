@@ -12,7 +12,14 @@ import (
 const (
 	helloMessage = `
 	Hello there!
-	To quit use Ctrl-D
+	
+	### Commands
+	"/name <username>" - set username, *anonymous* by default
+	"/rooms" - list available rooms
+	"/join <name> [password]" - join room
+	"/quit" - exit from room, if no room, disconnect
+	"/newroom <name> [password] [-h]" - crete new room (-h for hidden)
+	"/users" - list users in the room (tbd)
 `
 
 	byeMessage = `
@@ -28,7 +35,6 @@ type Client struct {
 	FromServer chan Message
 	ToServer   chan Message
 	InRoom     *Room
-	Commander  chan Command
 	Connected  bool
 }
 
@@ -50,7 +56,6 @@ func (c *Client) lookForMsg() {
 		var s string
 		if msg.Client == c {
 			continue
-			// s = fmt.Sprintf("YOU]>%v\n", msg.Text)
 		} else {
 			roomName := "*"
 			if msg.Client.InRoom != nil {
@@ -107,6 +112,7 @@ func (c *Client) Handle() {
 func (c *Client) executeCommand(cmd string) {
 	commad := strings.Split(cmd, " ")
 	action := strings.TrimSpace(commad[0])
+
 	switch action {
 	case "/name":
 		if len(commad) == 2 {
@@ -129,8 +135,28 @@ func (c *Client) executeCommand(cmd string) {
 		} else {
 			msg := fmt.Sprintf(
 				"%s\n%s\n%s",
-				strings.Repeat("-", 20), 
-				strings.Join(rooms, "\n"), 
+				strings.Repeat("-", 20),
+				strings.Join(rooms, "\n"),
+				strings.Repeat("-", 20),
+			)
+			c.specialMessage(msg)
+		}
+
+	case "/users":
+		users := make([]string, 0, 20)
+		for _, user := range c.Server.Clients {
+			if user.InRoom != c.InRoom || user == c {
+				continue
+			}
+			users = append(users, fmt.Sprintf("%s (%s)", user.Username, user.Addr))
+		}
+		if len(users) == 0 {
+			c.specialMessage("You are all alone :(")
+		} else {
+			msg := fmt.Sprintf(
+				"%s\n%s\n%s",
+				strings.Repeat("-", 20),
+				strings.Join(users, "\n"),
 				strings.Repeat("-", 20),
 			)
 			c.specialMessage(msg)
@@ -138,7 +164,7 @@ func (c *Client) executeCommand(cmd string) {
 
 	case "/join":
 		password := ""
-		if len(commad) < 2 || len(commad) > 3{
+		if len(commad) < 2 || len(commad) > 3 {
 			c.specialMessage("bad usage. use: /join <room_name> [password]")
 		}
 		if len(commad) == 3 {
@@ -180,7 +206,7 @@ func (c *Client) executeCommand(cmd string) {
 		if err != nil {
 			c.specialMessage(err.Error())
 		} else {
-			c.specialMessage("Created")
+			c.specialMessage("Created!, You now in room " + room.Name)
 		}
 
 	default:
@@ -201,7 +227,7 @@ func (c *Client) joinRoom(name, password string) error {
 	c.InRoom = room
 	c.Server.Rooms[name].Members[c.Addr] = c
 	return nil
-} 
+}
 
 func (c *Client) quitRoom() {
 	mems := c.Server.Rooms[c.InRoom.Name].Members

@@ -1,7 +1,6 @@
 package chat
 
 import (
-	"context"
 	"errors"
 	"log"
 	"net"
@@ -12,7 +11,7 @@ type ChatServer struct {
 	Listener        net.Listener
 	Clients         []*Client
 	MessangerMaster chan Message
-	Rooms			map[string]*Room
+	Rooms           map[string]*Room
 }
 
 func NewChatServer(addr string) (ChatServer, error) {
@@ -21,11 +20,33 @@ func NewChatServer(addr string) (ChatServer, error) {
 		return ChatServer{}, err
 	}
 	return ChatServer{
-		Addr:     addr,
-		Listener: listener,
+		Addr:            addr,
+		Listener:        listener,
 		MessangerMaster: make(chan Message),
-		Rooms: make(map[string]*Room),
+		Rooms:           make(map[string]*Room),
 	}, nil
+}
+
+func (s *ChatServer) Run() {
+	log.Println("Server started at ", s.Listener.Addr())
+	defer s.disconnect()
+
+	// start global message bus
+	go s.startMessanger()
+
+	for {
+		// acccept for new clients
+		conn, err := s.Listener.Accept()
+		if err != nil {
+			if err == net.ErrClosed {
+				return
+			}
+			log.Println("failed accept connection:", err.Error())
+			continue
+		}
+
+		s.handleClient(conn)
+	}
 }
 
 func (s *ChatServer) startMessanger() {
@@ -54,40 +75,15 @@ func (s *ChatServer) NewRoom(creator *Client, name, password string, hidden bool
 	m := make(map[string]*Client)
 	m[creator.Addr] = creator
 	r := Room{
-		HelloMessage: "Welcome, welcome",
-		Name:     name,
-		Password: password,
-		Hidden:   hidden,
-		Members:  m,
+		HelloMessage: "Welcome, welcome to " + name,
+		Name:         name,
+		Password:     password,
+		Hidden:       hidden,
+		Members:      m,
 	}
 
 	s.Rooms[name] = &r
 	return &r, nil
-}
-
-func (s *ChatServer) Run(ctx context.Context) {
-	log.Println("Server started at ", s.Listener.Addr())
-	defer s.disconnect()
-
-	go s.startMessanger()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			conn, err := s.Listener.Accept()
-			if err != nil {
-				if err == net.ErrClosed {
-					return
-				}
-				log.Println("failed accept connection:", err.Error())
-				continue
-			}
-
-			s.handleClient(conn)
-		}
-	}
 }
 
 func (s *ChatServer) handleClient(conn net.Conn) {

@@ -4,10 +4,11 @@
 
 ### Commands
 - `/name <username>` - set username, *anonymous* by default
-- `/rooms` - list available room
+- `/rooms` - list available rooms
 - `/join <name> [password]` - join room
 - `/quit` - exit from room, if no room, disconnect
 - `/newroom <name> [password] [-h]` - crete new room (-h for hidden)
+- `/users` - list users in the room
 
 
 ### TODO
@@ -17,4 +18,4 @@
 `go run cmd/chatt.go -p [port]`
 
 
-To connect use `telnet`, `netcat` or anything else
+To connect you may use `telnet` or `netcat`
